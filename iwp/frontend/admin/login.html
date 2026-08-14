@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Login — Trade Kings</title>
+<style>
+:root {
+  --ink-900: #12161c;
+  --ink-500: #56637a;
+  --amber: #e8a33d;
+  --red: #cf4a4a;
+  --paper: #f5f6f8;
+  --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --sans: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--ink-900) 0%, #262e3a 100%);
+  font-family: var(--sans);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.login-card {
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.logo {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 8px;
+  color: var(--ink-900);
+}
+.logo span { color: var(--amber); }
+.subtitle {
+  text-align: center;
+  color: var(--ink-500);
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+.form-group {
+  margin-bottom: 20px;
+}
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-500);
+  margin-bottom: 6px;
+}
+.form-group input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: var(--sans);
+  transition: border-color 0.2s;
+}
+.form-group input:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+.btn-login {
+  width: 100%;
+  background: var(--ink-900);
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-login:hover {
+  background: #1b212a;
+}
+.btn-login:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+.error-msg {
+  background: #fbe9e9;
+  color: var(--red);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  display: none;
+}
+.error-msg.show { display: block; }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="logo">Trade <span>Kings</span></div>
+  <div class="subtitle">Weigh-Print-Audit System</div>
+  
+  <div id="errorMsg" class="error-msg"></div>
+  
+  <form id="loginForm">
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="username" autocomplete="username" required autofocus />
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="password" autocomplete="current-password" required />
+    </div>
+    <button type="submit" class="btn-login" id="loginBtn">Login</button>
+  </form>
+</div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errorMsg = document.getElementById("errorMsg");
+  const loginBtn = document.getElementById("loginBtn");
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+
+  errorMsg.classList.remove("show");
+  loginBtn.disabled = true;
+  loginBtn.textContent = "Logging in...";
+
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Login failed");
+    }
+
+    const data = await res.json();
+    // Store auth in sessionStorage (cleared when browser closes)
+    sessionStorage.setItem("tk_auth", JSON.stringify({ username: data.username, logged_in: true }));
+    window.location.href = "index.html";
+  } catch (err) {
+    errorMsg.textContent = err.message;
+    errorMsg.classList.add("show");
+    loginBtn.disabled = false;
+    loginBtn.textContent = "Login";
+  }
+});
+</script>
+</body>
+</html>

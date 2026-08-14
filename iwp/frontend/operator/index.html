@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Weighing Station — Trade Kings</title>
+<style>
+:root {
+  --ink-900: #12161c;
+  --ink-500: #56637a;
+  --amber: #e8a33d;
+  --green: #3fa66a;
+  --green-bg: #e7f5ed;
+  --red: #cf4a4a;
+  --red-bg: #fbe9e9;
+  --paper: #f5f6f8;
+  --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --sans: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  font-family: var(--sans);
+  color: var(--ink-900);
+  padding: 20px;
+}
+.header {
+  background: var(--ink-900);
+  color: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.brand {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+}
+.brand span { color: var(--amber); }
+.station-name {
+  font-size: 18px;
+  color: var(--amber);
+  font-weight: 600;
+}
+.main-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+.weigh-section {
+  background: white;
+  border: 2px solid var(--ink-900);
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  margin-bottom: 24px;
+}
+.weigh-btn {
+  background: var(--ink-900);
+  color: white;
+  border: none;
+  padding: 32px 64px;
+  border-radius: 12px;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.weigh-btn:hover {
+  background: #1b212a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+.weigh-btn:active {
+  transform: translateY(0);
+}
+.weigh-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+.status-box {
+  background: var(--paper);
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 24px;
+  font-size: 16px;
+}
+.status-box.hidden { display: none; }
+.status-box .box-id {
+  font-family: var(--mono);
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.status-box .weight {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--ink-900);
+  margin-bottom: 12px;
+}
+.status-box .status {
+  display: inline-block;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 16px;
+}
+.status.printed { background: var(--green-bg); color: var(--green); }
+.status.failed { background: var(--red-bg); color: var(--red); }
+.recent-boxes {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+}
+.recent-boxes h3 {
+  margin-top: 0;
+  font-size: 18px;
+  color: var(--ink-500);
+}
+.box-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.box-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--paper);
+  border-radius: 6px;
+  font-size: 14px;
+}
+.box-item .id { font-family: var(--mono); font-weight: 600; }
+.box-item .weight { color: var(--ink-500); }
+.instruction {
+  text-align: center;
+  color: var(--ink-500);
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+</style>
+</head>
+<body>
+<div class="main-container">
+  <div class="header">
+    <div class="brand">Trade <span>Kings</span></div>
+    <div class="station-name" id="stationName">—</div>
+  </div>
+
+  <div class="instruction">
+    Place the box on the scale and click "Weigh & Print"
+  </div>
+
+  <div class="weigh-section">
+    <button id="weighBtn" class="weigh-btn">Weigh & Print</button>
+    <div id="statusBox" class="status-box hidden"></div>
+  </div>
+
+  <div class="recent-boxes">
+    <h3>Recent Boxes (Last 10)</h3>
+    <div id="boxList" class="box-list"></div>
+  </div>
+</div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+const STATION_ID = parseInt(new URLSearchParams(window.location.search).get("station") || "1");
+
+let stationData = null;
+
+async function loadStation() {
+  try {
+    const res = await fetch(`${API_BASE}/api/stations/${STATION_ID}`);
+    if (!res.ok) throw new Error("Station not found");
+    stationData = await res.json();
+    document.getElementById("stationName").textContent = stationData.name;
+  } catch (e) {
+    alert("Failed to load station: " + e.message);
+  }
+}
+
+async function loadRecentBoxes() {
+  try {
+    const res = await fetch(`${API_BASE}/api/records?station_id=${STATION_ID}&limit=10`);
+    const boxes = await res.json();
+    const list = document.getElementById("boxList");
+    if (!boxes.length) {
+      list.innerHTML = `<div style="text-align: center; color: var(--ink-500);">No boxes weighed yet</div>`;
+      return;
+    }
+    list.innerHTML = boxes.map(b => `
+      <div class="box-item">
+        <span class="id">${b.box_id}</span>
+        <span class="weight">${b.weight.toFixed(3)} ${b.unit}</span>
+        <span class="status ${b.print_status}">${b.print_status}</span>
+      </div>
+    `).join("");
+  } catch (e) {
+    console.error("Failed to load recent boxes:", e);
+  }
+}
+
+document.getElementById("weighBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("weighBtn");
+  const statusBox = document.getElementById("statusBox");
+  
+  btn.disabled = true;
+  btn.textContent = "Weighing...";
+  statusBox.classList.add("hidden");
+
+  try {
+    const res = await fetch(`${API_BASE}/api/stations/${STATION_ID}/weigh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ station_id: STATION_ID, batch_number: "", operator: "" }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Weighing failed");
+    }
+
+    const data = await res.json();
+    statusBox.innerHTML = `
+      <div class="box-id">${data.box_id}</div>
+      <div class="weight">${data.weight} ${data.unit}</div>
+      <div class="status ${data.print_status}">${data.print_status.toUpperCase()}</div>
+    `;
+    statusBox.classList.remove("hidden");
+    
+    // Reload recent boxes list
+    setTimeout(() => loadRecentBoxes(), 500);
+  } catch (e) {
+    alert("Weighing failed: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Weigh & Print";
+  }
+});
+
+loadStation();
+loadRecentBoxes();
+setInterval(loadRecentBoxes, 10000); // Auto-refresh every 10s
+</script>
+</body>
+</html>

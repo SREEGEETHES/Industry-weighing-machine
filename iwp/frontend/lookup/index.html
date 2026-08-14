@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Box Lookup — Trade Kings</title>
+<style>
+  :root {
+    --ink-900: #12161c;
+    --ink-500: #56637a;
+    --amber: #e8a33d;
+    --green: #3fa66a;
+    --green-bg: #e7f5ed;
+    --red: #cf4a4a;
+    --red-bg: #fbe9e9;
+    --paper: #f5f6f8;
+    --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    background: var(--paper);
+    font-family: var(--sans);
+    color: var(--ink-900);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 48px 20px;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: 22px;
+    margin-bottom: 4px;
+  }
+  h1 span { color: var(--amber); }
+  p.sub { color: var(--ink-500); font-size: 13px; margin-top: 0; margin-bottom: 32px; }
+  .search-box {
+    display: flex; gap: 8px;
+    width: 100%; max-width: 420px;
+  }
+  .search-box input {
+    flex: 1;
+    padding: 12px 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 14px;
+    text-transform: uppercase;
+  }
+  .search-box button {
+    background: var(--ink-900);
+    color: white;
+    border: none;
+    padding: 0 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #result { width: 100%; max-width: 420px; margin-top: 24px; }
+  .record-card {
+    background: white;
+    border: 1px solid #e7e9ed;
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .record-card .box-id {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .status-line { margin-bottom: 16px; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+  }
+  .badge.yes, .badge.printed { background: var(--green-bg); color: var(--green); }
+  .badge.no, .badge.failed { background: var(--red-bg); color: var(--red); }
+  .field-row {
+    display: flex; justify-content: space-between;
+    padding: 8px 0; border-top: 1px solid #eee;
+    font-size: 13px;
+  }
+  .field-row .label { color: var(--ink-500); }
+  .field-row .val { font-family: var(--mono); font-weight: 600; }
+  .empty, .error {
+    text-align: center; color: var(--ink-500); font-size: 13px; margin-top: 12px;
+  }
+  .error { color: var(--red); }
+</style>
+</head>
+<body>
+  <h1>Box <span>Lookup</span></h1>
+  <p class="sub">Enter the Box ID printed on the carton to view its verified weight and audit record.</p>
+
+  <div class="search-box">
+    <input id="boxIdInput" placeholder="BOX-2026-000001" autofocus />
+    <button id="searchBtn">Look up</button>
+  </div>
+
+  <div id="result"></div>
+
+<script>
+  const API_BASE = "http://localhost:8000"; // change to your deployed API URL
+
+  const input = document.getElementById("boxIdInput");
+  const resultEl = document.getElementById("result");
+
+  async function lookup() {
+    const boxId = input.value.trim().toUpperCase();
+    if (!boxId) return;
+    resultEl.innerHTML = `<div class="empty">Searching…</div>`;
+    try {
+      const res = await fetch(`${API_BASE}/api/lookup/${encodeURIComponent(boxId)}`);
+      if (res.status === 404) {
+        resultEl.innerHTML = `<div class="error">No record found for "${boxId}". Check the ID printed on the box and try again.</div>`;
+        return;
+      }
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
+      const r = await res.json();
+      resultEl.innerHTML = `
+        <div class="record-card">
+          <div class="box-id">${r.box_id}</div>
+          <div class="status-line">
+            <span class="badge ${r.print_status}">${r.print_status}</span>
+            ${r.within_tolerance !== null ? `<span class="badge ${r.within_tolerance ? 'yes' : 'no'}">${r.within_tolerance ? 'Within tolerance' : 'Out of tolerance'}</span>` : ''}
+          </div>
+          <div class="field-row"><span class="label">Weight</span><span class="val">${r.weight.toFixed(3)} ${r.unit}</span></div>
+          <div class="field-row"><span class="label">Product Code</span><span class="val">${r.product_code || '—'}</span></div>
+          <div class="field-row"><span class="label">Batch</span><span class="val">${r.batch_number || '—'}</span></div>
+          <div class="field-row"><span class="label">Station / Machine</span><span class="val">${r.machine_id}</span></div>
+          <div class="field-row"><span class="label">Weighed At</span><span class="val">${new Date(r.created_at).toLocaleString()}</span></div>
+          ${r.operator ? `<div class="field-row"><span class="label">Operator</span><span class="val">${r.operator}</span></div>` : ''}
+        </div>`;
+    } catch (e) {
+      resultEl.innerHTML = `<div class="error">Could not reach the lookup service. ${e.message}</div>`;
+    }
+  }
+
+  document.getElementById("searchBtn").addEventListener("click", lookup);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") lookup(); });
+</script>
+</body>
+</html>
