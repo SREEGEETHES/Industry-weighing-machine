@@ -1,0 +1,37 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database (contains real production data - never commit!)
+*.db
+*.db-journal
+*.sqlite
+
+# Environment variables (contains passwords - never commit!)
+.env
+
+# Generated reports (large files, regenerated automatically)
+backend/reports/*.xlsx
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
